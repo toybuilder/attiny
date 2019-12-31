@@ -9,8 +9,13 @@
 
 #include "nvm.h"
 
+// This file is for ATTiny 1- and 10- series devices that write to the flash through the use of the NVM controller and uses LD/ST to access the flash memory.
+// This is different from ATTiny84 and others that use the LPM/SPM mechanisms to access the flash.
+// See Microchip's Appnote "Writing to Flash and EEPROM on the tinyAVR 1-series" (AN1983, formerly Atmel AVR42789) 
+// This file specifically refers to sections/figures in the ATTiny104 Datasheet.
 
-// Per ATTiny104 Datasheet
+
+
 // Code (program memory)
 // Section Size 1024 (Bytes)
 // Page Size	   8 (Words)
@@ -18,6 +23,8 @@
 // WADDR		[3:1]
 // PADDR		[9:4]
 // 8 words * 64 pages = 512 words = 1024 bytes
+//
+// 
 //
 // 20.4.1. Addressing the Flash
 //   The data space uses byte accessing but since the Flash sections are accessed as words and organized
@@ -131,6 +138,8 @@ void NVM_EraseWriteAndShow (uint16_t address, uint16_t value) {
 
 void NVM_test(void) {
 	// Each bracketed chunk of test code demonstrates important concepts on the use of the NVM self-programming features
+	// NOTE - You'll see "0x43e0" sprinkled in the code below.  That is the memory page at FLASH byte location 0x3e0,
+	// which is mapped to the ATTiny's memory space with a 0x4000 offset.  (See section 9 and figure 9-1).
 	
 	#if 0
 	{
