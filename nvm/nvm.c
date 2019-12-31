@@ -9,7 +9,7 @@
 
 #include "nvm.h"
 
-// This file is for ATTiny 1- and 10- series devices that write to the flash through the use of the NVM controller and uses LD/ST to access the flash memory.
+// This file is for ATTiny 1-series and 102/104 devices that write to the flash through the use of the NVM controller and uses LD/ST to access the flash memory.
 // This is different from ATTiny84 and others that use the LPM/SPM mechanisms to access the flash.
 // See Microchip's Appnote "Writing to Flash and EEPROM on the tinyAVR 1-series" (AN1983, formerly Atmel AVR42789) 
 // This file specifically refers to sections/figures in the ATTiny104 Datasheet.
