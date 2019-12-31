@@ -49,15 +49,16 @@
 
 void PAGE_Erase(uint16_t address)
 {
+	// NOTE: Page erase must make a dummy write to the high-byte address of a word inside the page to be erased
 	asm volatile (
 	"ldi  r19,0x18  \n\t"
-	"out  0x33,r19  \n\t"   /* set NVMCMD to PAGE_ERASE; */
+	"out  0x33,r19  \n\t"   /* set NVMCMD to PAGE_ERASE (0b011000 per section 20.5); */
 	"ldi  r19,0xE7  \n\t"
-	"out  0x3C,r19  \n\t"   /* CPP = 0xE7 NVM self-programming enable */
+	"out  0x3C,r19  \n\t"   /* CCP = 0xE7 NVM self-programming enable */
 	/* trigger page erase within four clock cycles.*/
 	"ldi  r22,0x00  \n\t"
 	"st  Z+,r22     \n\t"
-	"nop            \n\t"
+	"nop            \n\t"  /* two nops are required after the ST operation that triggers the erase operation */
 	"nop  "
 	:                       /* No outputs. */
 	:"z" (address)
@@ -111,17 +112,73 @@ void  __attribute__ ((weak)) blinkout(uint8_t value) {
 	// Define your own somewhere else, or modify locally
 }
 
+void NVM_ShowValue(uint16_t address) {
+	// Read value from address and write it out, digit by digit
+	uint16_t value;
+	value=MEM_Read(address) | MEM_Read(address+1)<<8;	
+	blinkout((value>>12)&0xf);
+	blinkout((value>>8)&0xf);
+	blinkout((value>>4)&0xf);
+	blinkout(value&0xf);	
+}
+
+void NVM_EraseWriteAndShow (uint16_t address, uint16_t value) {
+	// NOTE: address must be word-aligned
+	PAGE_Erase(address+1);
+	NVM_Write(address,value);
+	NVM_ShowValue(address);	
+}
+
 void NVM_test(void) {
-	static uint16_t val;
-	val=MEM_Read(NVM_BLK_ADDR(0)) | MEM_Read(NVM_BLK_ADDR(1))<<8;
-	blinkout((val>>12)&0xf);
-	blinkout((val>>8)&0xf);
-	blinkout((val>>4)&0xf);
-	blinkout(val&0xf);
-	val=0x1234;
-	PAGE_Erase(0x43f0);
-	NVM_Write(0x43f0,val);
-	setRed();
+	// Each bracketed chunk of test code demonstrates important concepts on the use of the NVM self-programming features
+	
+	#if 0
+	{
+		// If this is the first run after programming, the flash will have been erased, showing 0xffff
+		// If you reset and restart the processor after a write, it will show the currently stored value
+		NVM_ShowValue(0x43e0);
+	}
+
+	{
+		// This should work as expected, showing 0x7310
+		NVM_EraseWriteAndShow(0x43e0, 0x7310);  
+	}
+	
+	{
+		// this should work as expected, showing 0x1111 and 0x2222
+		NVM_EraseWriteAndShow(0x43e0, 0x1111);  
+		NVM_EraseWriteAndShow(0x43e0, 0x2222);		
+	}
+	
+	{
+		// this demonstrates that we can write a 0 over a 1, but not a 1 over a 0
+		NVM_EraseWriteAndShow(0x43e0, 0x3300);  // This shows 0x3300
+		NVM_Write(0x43e0, 0x1111);  // If we write without erasing first, we can't write a 1 over already-burned 0
+		NVM_ShowValue(0x43e0); // Since (0x3300) & (0x1111) == 0x1100, this results in showing 0x1100 (instead of 0x1111)		
+	}
+
+#endif
+	{
+		// This shows that the page erase does not work if the low-offset byte in a word is selected for page erase
+		NVM_EraseWriteAndShow(0x43e0, 0x1111);		
+		PAGE_Erase(0x43e0);    
+		NVM_ShowValue(0x43e0);
+	}
+
+	{
+		// This works.  We must use a high byte address for the PAGE_Erase command
+		NVM_EraseWriteAndShow(0x43e0, 0x2222);
+		PAGE_Erase(0x43e1);    
+		NVM_ShowValue(0x43e0);
+	}
+	
+	{
+		// This also works.			
+		NVM_EraseWriteAndShow(0x43e0, 0x3333);
+		PAGE_Erase(0x43e3);
+		NVM_ShowValue(0x43e0);
+	}
+	
 	while(1) // HALT
 	  ;
 	// After initial programming via TPI, we should get 0xFFFF (15 blinks, 4 times)
